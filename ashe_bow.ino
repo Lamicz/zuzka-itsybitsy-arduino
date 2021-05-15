@@ -1,6 +1,7 @@
 #include <SPI.h>
 #include <Adafruit_NeoPixel.h>
 #include <Adafruit_DotStar.h>
+#include <arduino-timer.h>
 
 #define STRIP_LENGTH 20
 #define TIMER1_UPDATE 15
@@ -11,14 +12,12 @@
 
 Adafruit_DotStar onboardLed(1, 41, 40, DOTSTAR_BRG);
 Adafruit_NeoPixel strip(STRIP_LENGTH, 5, NEO_GRBW + NEO_KHZ800);
+auto timer = timer_create_default();
 
 int i = 0;
 int x = 0;
 int y = 0;
 bool isValid = false;
-
-unsigned long timer1LastUpdated = millis();
-unsigned long timer2LastUpdated = millis();
 
 int stripFreePositions[STRIP_LENGTH];
 int pixelsMode0Current = 11;
@@ -65,9 +64,6 @@ class Pixel
 };
 
 Pixel pixels[PIXELS_CNT];
-
-//strip.setBuffered(true)
-//stripTest()
 
 void pixelProcess(Pixel &pixel) {
 
@@ -173,7 +169,7 @@ void pixelCreate(Pixel &pixel) {
   }
 
   if (pixel.mode == 1) {
-    isValid = random(0, 10) > 5 && pixelsMode1CurrentPixels < pixelsMode1Current;
+    isValid = pixelsMode1CurrentPixels < pixelsMode1Current;
   }
 
   if (isValid) {
@@ -215,11 +211,22 @@ void pixelCreate(Pixel &pixel) {
   }
 }
 
+bool eventTimer1(void *)
+{
+  pixelsMode0Current = random(pixelsMode0[0], pixelsMode0[1]);
+  return true;
+}
+
+bool eventTimer2(void *)
+{
+  pixelsMode1Current = random(pixelsMode1[0], pixelsMode1[1]);
+  pixelWaitCyclesMode1 = random(pixelWaitCyclesMode1Pool[0], pixelWaitCyclesMode1Pool[1]);
+  return true;
+}
+
 void stripReset() {
 
   strip.clear();
-
-  stripFreePositions[STRIP_LENGTH];
 
   // fade mode
   i = x = 0;
@@ -269,6 +276,9 @@ void stripReset() {
 
 void setup()
 {
+  timer.every(TIMER1_UPDATE * 1000, eventTimer1);
+  timer.every(TIMER2_UPDATE * 1000, eventTimer2);
+  
   onboardLed.begin();
   onboardLed.setBrightness(30);
   onboardLed.setPixelColor(0, 0x00FF0000);
@@ -282,22 +292,10 @@ void setup()
 }
 
 void loop()
-{
-  if ((millis() - timer1LastUpdated) > TIMER1_UPDATE) {
-
-    timer1LastUpdated = millis();
-
-    pixelsMode0Current = random(pixelsMode0[0], pixelsMode0[1]);
-  }
-
-  if ((millis() - timer2LastUpdated) > TIMER2_UPDATE) {
-
-    timer2LastUpdated = millis();
-
-    pixelsMode1Current = random(pixelsMode1[0], pixelsMode1[1]);
-    pixelWaitCyclesMode1 = random(pixelWaitCyclesMode1Pool[0], pixelWaitCyclesMode1Pool[1]);
-  }
-
+{  
+  
+  timer.tick();
+  
   for (int cnt = 0; cnt < PIXELS_CNT; cnt++) {
 
     if (pixels[cnt].status > 0) {
