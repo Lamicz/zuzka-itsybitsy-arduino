@@ -6,6 +6,9 @@
 #define STRIP_LENGTH 20
 #define TIMER1_UPDATE 15
 #define TIMER2_UPDATE 10
+#define EXTRACT_RED(color)  (((color) >> 16) & 0xff)
+#define EXTRACT_GREEN(color)  (((color) >> 8) & 0xff)
+#define EXTRACT_GREEN(color)  ((color) & 0xff)
 
 // pixelsMode0Max + pixelsMiddleCnt;
 #define PIXELS_CNT 16
@@ -116,15 +119,24 @@ void pixelProcess(Pixel &pixel) {
 
     if (pixel.mode == 2) {
 
+      float whiteBrightness = pixel.currentBrightness;
+      if(pixel.waitWhiteBlink == 1){
+        whiteBrightness /= 2;
+      }
+
       strip.setPixelColor(
         pixel.position,
         strip.Color(
           pixelColor[0] * pixel.currentBrightness / 255,
           pixelColor[1] * pixel.currentBrightness / 255,
           pixelColor[2] * pixel.currentBrightness / 255,
-          (pixel.waitWhiteBlink == 1 && pixel.currentBrightness > 40) ? pixel.currentBrightness - 15 : pixel.currentBrightness
+          whiteBrightness
         )
       );
+
+      if (pixel.status == 2 && pixel.currentBrightness <= pixel.currentBrightnessImmutable) {
+        pixel.currentBrightness = 0;
+      }
     }
 
     if (pixel.mode == 0) {
@@ -136,32 +148,28 @@ void pixelProcess(Pixel &pixel) {
                     pixelColor[2] * pixel.currentBrightness / 255
                    )
       );
-    }
 
-    if (pixel.waitWhiteBlink > 0 && pixel.status == 2) {
-
-      color = strip.getPixelColor(pixel.position);
-
-      if (pixel.timerWhiteBlink < pixel.waitWhiteBlink) {
-
-        strip.setPixelColor(
-          pixel.position,
-          strip.Color(getRed(color), getGreen(color), getBlue(color), 255)
-        );
-
-        pixel.timerWhiteBlink++;
-
-      } else {
-
-        strip.setPixelColor(
-          pixel.position,
-          strip.Color(getRed(color), getGreen(color), getBlue(color), 0)
-        );
+      if (pixel.waitWhiteBlink > 0 && pixel.status == 2) {
+  
+        color = strip.getPixelColor(pixel.position);
+  
+        if (pixel.timerWhiteBlink < pixel.waitWhiteBlink) {
+  
+          strip.setPixelColor(
+            pixel.position,
+            strip.Color(getRed(color), getGreen(color), getBlue(color), 255)
+          );
+  
+          pixel.timerWhiteBlink++;
+  
+        } else {
+  
+          strip.setPixelColor(
+            pixel.position,
+            strip.Color(getRed(color), getGreen(color), getBlue(color), 0)
+          );
+        }
       }
-    }
-
-    if ((pixel.mode == 2) && (pixel.status == 2) && (pixel.currentBrightness <= pixel.currentBrightnessImmutable)) {
-      pixel.currentBrightness = 0;
     }
   }
 
@@ -225,7 +233,7 @@ void pixelCreate(Pixel &pixel) {
       pixel.brightnessStep = random(pixelStepChangeBrightnessMode02[0], pixelStepChangeBrightnessMode02[1]) / 100.0;
       pixel.currentBrightness = random(pixelsMiddleMinBrightnessPool[0], pixelsMiddleMinBrightnessPool[1]);
       pixel.currentBrightnessImmutable = pixel.currentBrightness;
-      pixel.waitWhiteBlink = (random(10) > 8) ? 1 : 0;
+      pixel.waitWhiteBlink = (random(20) == 10) ? 1 : 0;
       pixel.maxBrightness = 255;
     }
 
@@ -236,7 +244,7 @@ void pixelCreate(Pixel &pixel) {
 bool eventTimer1(void *)
 {
   pixelsMode0Current = random(pixelsMode0[0], pixelsMode0[1]);
-  pixelsWhiteBlinkCurrent = random(pixelsMode0Current / 2);
+  pixelsWhiteBlinkCurrent = random(round(pixelsMode0Current / 2));
   return true;
 }
 
