@@ -8,7 +8,7 @@
 #define TIMER2_UPDATE 10
 #define EXTRACT_RED(color)  (((color) >> 16) & 0xff)
 #define EXTRACT_GREEN(color)  (((color) >> 8) & 0xff)
-#define EXTRACT_GREEN(color)  ((color) & 0xff)
+#define EXTRACT_BLUE(color)  ((color) & 0xff)
 
 // pixelsMode0Max + pixelsMiddleCnt;
 #define PIXELS_CNT 16
@@ -68,21 +68,6 @@ const int pixelMode0MaxBrightness[] = {85, 256};
 const int pixelStepChangeBrightnessMode02[] = {30, 50}; // *100
 const int pixelColor[] = {123, 254, 255};
 const int pixelsWaitWhiteBlinkMaxPool[] = {8, 51};
-
-uint8_t getRed(uint32_t color)
-{
-  return (color >> 16) & 0xFF;
-}
-
-uint8_t getGreen(uint32_t color)
-{
-  return (color >> 8) & 0xFF;
-}
-
-uint8_t getBlue(uint32_t color)
-{
-  return color & 0xFF;
-}
 
 void pixelProcess(Pixel &pixel) {
 
@@ -157,7 +142,7 @@ void pixelProcess(Pixel &pixel) {
   
           strip.setPixelColor(
             pixel.position,
-            strip.Color(getRed(color), getGreen(color), getBlue(color), 255)
+            strip.Color(EXTRACT_RED(color), EXTRACT_GREEN(color), EXTRACT_BLUE(color), 255)
           );
   
           pixel.timerWhiteBlink++;
@@ -166,7 +151,7 @@ void pixelProcess(Pixel &pixel) {
   
           strip.setPixelColor(
             pixel.position,
-            strip.Color(getRed(color), getGreen(color), getBlue(color), 0)
+            strip.Color(EXTRACT_RED(color), EXTRACT_GREEN(color), EXTRACT_BLUE(color), 0)
           );
         }
       }
