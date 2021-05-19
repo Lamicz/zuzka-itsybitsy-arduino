@@ -30,10 +30,12 @@ class Pixel
     int position = 0;
     int wait = 0;
     int waitWhiteBlink = 0;
-    int currentBrightnessImmutable = 0;
     float brightnessStep = 0;
     float currentBrightness = 0;
     int maxBrightness = 0;
+    int minBrightness = 0;
+    bool dim = false;
+    int dimVal = 0;
 
     Pixel()
     {
@@ -65,9 +67,36 @@ const int pixelsMiddleMinBrightnessPool[] = {75, 110};
 const int pixelsMode0[] = {5, 13};
 const int pixelsMode0Max = 12;
 const int pixelMode0MaxBrightness[] = {85, 256};
-const int pixelStepChangeBrightnessMode02[] = {30, 50}; // *100
+const int pixelStepChangeBrightnessMode0[] = {30, 50}; // *100
+const int pixelStepChangeBrightnessMode2[] = {10, 30}; // *100
 const int pixelColor[] = {123, 254, 255};
 const int pixelsWaitWhiteBlinkMaxPool[] = {8, 51};
+
+void adjustValByStep(float* varToAdjust, const int minMaxArr[], float adjustByVar = 10000, int adjustStep = 3)
+{
+  if (varToAdjust == 0) {
+    *varToAdjust = random(minMaxArr[0], minMaxArr[1]);
+    return;
+  }
+  int currentStep = random(adjustStep);
+  if (random(11) > 5) {
+    *varToAdjust = (adjustByVar == 10000)
+                  ? *varToAdjust + currentStep
+                  : adjustByVar + currentStep;
+  } else {
+    *varToAdjust = (adjustByVar == 10000)
+                  ? *varToAdjust - currentStep
+                  : adjustByVar - currentStep;
+  }
+  if (*varToAdjust > minMaxArr[1]) {
+    *varToAdjust = minMaxArr[1];
+    return;
+  }
+  if (*varToAdjust < minMaxArr[0]) {
+    *varToAdjust = minMaxArr[0];
+    return;
+  }
+}
 
 void pixelProcess(Pixel &pixel) {
 
@@ -105,8 +134,8 @@ void pixelProcess(Pixel &pixel) {
     if (pixel.mode == 2) {
 
       float whiteBrightness = pixel.currentBrightness;
-      if(pixel.waitWhiteBlink == 1){
-        whiteBrightness /= 2;
+      if (pixel.dim) {
+        whiteBrightness /= pixel.dimVal;
       }
 
       strip.setPixelColor(
@@ -118,10 +147,6 @@ void pixelProcess(Pixel &pixel) {
           whiteBrightness
         )
       );
-
-      if (pixel.status == 2 && pixel.currentBrightness <= pixel.currentBrightnessImmutable) {
-        pixel.currentBrightness = 0;
-      }
     }
 
     if (pixel.mode == 0) {
@@ -135,20 +160,20 @@ void pixelProcess(Pixel &pixel) {
       );
 
       if (pixel.waitWhiteBlink > 0 && pixel.status == 2) {
-  
+
         color = strip.getPixelColor(pixel.position);
-  
+
         if (pixel.timerWhiteBlink < pixel.waitWhiteBlink) {
-  
+
           strip.setPixelColor(
             pixel.position,
             strip.Color(EXTRACT_RED(color), EXTRACT_GREEN(color), EXTRACT_BLUE(color), 255)
           );
-  
+
           pixel.timerWhiteBlink++;
-  
+
         } else {
-  
+
           strip.setPixelColor(
             pixel.position,
             strip.Color(EXTRACT_RED(color), EXTRACT_GREEN(color), EXTRACT_BLUE(color), 0)
@@ -158,7 +183,7 @@ void pixelProcess(Pixel &pixel) {
     }
   }
 
-  if ((pixel.currentBrightness == 0) && (pixel.status == 2)) {
+  if ((pixel.currentBrightness <= pixel.minBrightness) && (pixel.status == 2)) {
 
     if (pixel.mode == 0) {
 
@@ -209,26 +234,31 @@ void pixelCreate(Pixel &pixel) {
         pixel.waitWhiteBlink = random(pixelsWaitWhiteBlinkMaxPool[0], pixelsWaitWhiteBlinkMaxPool[1]);
       }
 
-      pixel.brightnessStep = random(pixelStepChangeBrightnessMode02[0], pixelStepChangeBrightnessMode02[1]) / 100.0;
+      pixel.brightnessStep = random(pixelStepChangeBrightnessMode0[0], pixelStepChangeBrightnessMode0[1]) / 100.0;
       pixel.maxBrightness = random(pixelMode0MaxBrightness[0], pixelMode0MaxBrightness[1]);
     }
 
     if (pixel.mode == 2) {
 
-      pixel.brightnessStep = random(pixelStepChangeBrightnessMode02[0], pixelStepChangeBrightnessMode02[1]) / 100.0;
-      pixel.currentBrightness = random(pixelsMiddleMinBrightnessPool[0], pixelsMiddleMinBrightnessPool[1]);
-      pixel.currentBrightnessImmutable = pixel.currentBrightness;
-      pixel.waitWhiteBlink = (random(20) == 10) ? 1 : 0;
-      pixel.maxBrightness = 255;
-    }
+      adjustValByStep(&pixel.currentBrightness, pixelsMiddleMinBrightnessPool, pixel.minBrightness);
 
+      pixel.minBrightness = pixel.currentBrightness;
+      pixel.brightnessStep = random(pixelStepChangeBrightnessMode2[0], pixelStepChangeBrightnessMode2[1]) / 100.0;      
+      pixel.dim = random(20) == 10;
+      if (pixel.dim) {
+        pixel.dimVal = random(2, 5);
+      }
+      int maxBrightness = pixel.minBrightness * 2;
+      pixel.maxBrightness = (maxBrightness > 255) ? 255 : maxBrightness;
+    }
     pixel.status = 1;
   }
 }
 
 bool eventTimer1(void *)
 {
-  pixelsMode0Current = random(pixelsMode0[0], pixelsMode0[1]);
+  float pixelsMode0CurrentF = (float) pixelsMode0Current;
+  adjustValByStep(&pixelsMode0CurrentF, pixelsMode0);
   pixelsWhiteBlinkCurrent = random(round(pixelsMode0Current / 2));
   return true;
 }
