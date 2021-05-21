@@ -1,6 +1,5 @@
-#include <SPI.h>
 #include <Adafruit_NeoPixel.h>
-#include <Adafruit_DotStar.h>
+#include <APA102.h>
 #include <arduino-timer.h>
 
 #define STRIP_LENGTH 20
@@ -13,8 +12,11 @@
 // pixelsMode0Max + pixelsMiddleCnt;
 #define PIXELS_CNT 16
 
-Adafruit_DotStar onboardLed(1, 41, 40, DOTSTAR_BGR);
+APA102<41, 40> onboardLed;
+rgb_color colors[1];
+
 Adafruit_NeoPixel strip(STRIP_LENGTH, 5, NEO_GRBW + NEO_KHZ800);
+
 auto timer = timer_create_default();
 
 const int pixelWaitCyclesMode2 = 40;
@@ -309,10 +311,10 @@ void setup()
 
   timer.every(TIMER1_UPDATE * 1000, eventTimer1);
 
-  onboardLed.begin();
-  onboardLed.setBrightness(30);
-  onboardLed.setPixelColor(0, onboardLed.Color(0, 255, 0));
-  onboardLed.show();
+  colors[0].red = 0;
+  colors[0].green = 65;
+  colors[0].blue = 0;
+  onboardLed.write(colors, 1, 1);
 
   strip.begin();
   strip.show();
