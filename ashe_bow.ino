@@ -34,10 +34,10 @@ class Pixel
     int waitWhiteBlink = 0;
     float brightnessStep = 0;
     float currentBrightness = 0;
+    float currentBrightnessWhite = 0;
     int maxBrightness = 0;
     int minBrightness = 0;
     bool dim = false;
-    int dimVal = 0;
 
     Pixel()
     {
@@ -117,6 +117,7 @@ void pixelProcess(Pixel &pixel) {
     if (pixel.status == 1) {
 
       pixel.currentBrightness += pixel.brightnessStep;
+      pixel.currentBrightnessWhite -= pixel.brightnessStep;
 
       if (pixel.currentBrightness >= pixel.maxBrightness) {
         pixel.timer = 1;
@@ -124,21 +125,25 @@ void pixelProcess(Pixel &pixel) {
         pixel.currentBrightness = pixel.maxBrightness;
       }
 
+      if(pixel.currentBrightnessWhite < 0){
+        pixel.currentBrightnessWhite = 0;
+      }
+
     } else {
 
       pixel.currentBrightness -= pixel.brightnessStep;
+      pixel.currentBrightnessWhite += pixel.brightnessStep;
 
       if (pixel.currentBrightness < 0) {
         pixel.currentBrightness = 0;
       }
+
+      if(pixel.currentBrightnessWhite >= pixel.maxBrightness){
+        pixel.currentBrightnessWhite = pixel.maxBrightness;
+      }
     }
 
     if (pixel.mode == 2) {
-
-      float whiteBrightness = pixel.currentBrightness;
-      if (pixel.dim) {
-        whiteBrightness /= pixel.dimVal;
-      }
 
       strip.setPixelColor(
         pixel.position,
@@ -146,7 +151,7 @@ void pixelProcess(Pixel &pixel) {
           pixelColor[0] * pixel.currentBrightness / 255,
           pixelColor[1] * pixel.currentBrightness / 255,
           pixelColor[2] * pixel.currentBrightness / 255,
-          whiteBrightness
+          (pixel.dim == false) ? pixel.currentBrightness : pixel.currentBrightnessWhite
         )
       );
     }
@@ -242,16 +247,19 @@ void pixelCreate(Pixel &pixel) {
 
     if (pixel.mode == 2) {
 
-      adjustValByStep(&pixel.currentBrightness, pixelsMiddleMinBrightnessPool, pixel.minBrightness);
-
-      pixel.minBrightness = pixel.currentBrightness;
+      adjustValByStep(&pixel.currentBrightness, pixelsMiddleMinBrightnessPool, pixel.minBrightness);      
+      pixel.minBrightness = pixel.currentBrightness;      
       pixel.brightnessStep = random(pixelStepChangeBrightnessMode2[0], pixelStepChangeBrightnessMode2[1]) / 100.0;      
+      
       pixel.dim = random(20) == 10;
       if (pixel.dim) {
-        pixel.dimVal = random(2, 5);
+        adjustValByStep(&pixel.currentBrightnessWhite, pixelsMiddleMinBrightnessPool, pixel.minBrightness);
       }
-      int maxBrightness = pixel.minBrightness * 2;
-      pixel.maxBrightness = (maxBrightness > 255) ? 255 : maxBrightness;
+      
+      pixel.maxBrightness = pixel.minBrightness * 2;
+      if(pixel.maxBrightness > 255){
+        pixel.maxBrightness = 255;
+      }     
     }
     pixel.status = 1;
   }
