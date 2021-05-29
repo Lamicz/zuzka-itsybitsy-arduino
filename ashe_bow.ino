@@ -14,73 +14,60 @@
 
 APA102<41, 40> onboardLed;
 rgb_color colors[1];
-
 Adafruit_NeoPixel strip(STRIP_LENGTH, 5, NEO_GRBW + NEO_KHZ800);
-
 auto timer = timer_create_default();
 
-const int pixelWaitCyclesMode2 = 40;
-const int pixelWaitCyclesMode0 = 10;
-
-class Pixel
+typedef struct Pixel
 {
-  public:
-    int timer = 0;
-    int timerWhiteBlink = 0;
-    int status = 0;
-    int mode = 0; // 0 - RGB fade with blink, 2 - middle fade
-    int position = 0;
-    int wait = 0;
-    int waitWhiteBlink = 0;
-    float brightnessStep = 0;
-    float currentBrightness = 0;
-    float currentBrightnessWhite = 0;
-    int maxBrightness = 0;
-    int minBrightness = 0;
-    bool dim = false;
+  byte mode = 0;
+  byte status = 0;
+  byte timer = 0;
+  byte wait = 0;
+  int position = 0;
+  int maxBrightness = 0;
+  int minBrightness = 0;
+  float brightnessStep = 0.0;
+  float currentBrightness = 0.0;
 
-    Pixel()
-    {
-    }
+  // Mode 0
+  byte timerWhiteBlink = 0;
+  byte waitWhiteBlink = 0;
 
-    Pixel(int m, int p = 0)
-    {
-      mode = m;
-      position = p;
-      wait = (m == 0) ? pixelWaitCyclesMode0 : pixelWaitCyclesMode2;
-    }
-};
+  // Mode 2
+  float currentBrightnessWhite = 0.0;
+  bool dim = false;  
+} Pixel;
 
 Pixel pixels[PIXELS_CNT];
 int i = 0;
 int x = 0;
-bool isValid = false;
-uint32_t color;
 int stripFreePositions[STRIP_LENGTH];
-int pixelsMode0Current = 11;
+byte pixelsMode0Current = 11;
 int pixelsMode0CurrentPixels = 0;
-int pixelsWhiteBlinkCurrent = 3;
+byte pixelsWhiteBlinkCurrent = 3;
 int pixelsWhiteBlinkCurrentPixels = 0;
 
-const int pixelsMiddle[] = {8, 9, 10, 11};
-const int pixelMiddle = 10;
-const int pixelsMiddleCnt = 4;
-const int pixelsMiddleMinBrightnessPool[] = {75, 110};
-const int pixelsMode0[] = {5, 13};
-const int pixelsMode0Max = 12;
-const int pixelMode0MaxBrightness[] = {85, 256};
-const int pixelStepChangeBrightnessMode0[] = {30, 50}; // *100
-const int pixelStepChangeBrightnessMode2[] = {10, 30}; // *100
-const int pixelColor[] = {123, 254, 255};
-const int pixelsWaitWhiteBlinkMaxPool[] = {8, 51};
+const byte pixelsMiddle[] = {8, 9, 10, 11};
+const byte pixelMiddle = 10;
+const byte pixelsMiddleCnt = 4;
+const byte pixelsMiddleMinBrightnessPool[] = {75, 110};
+const byte pixelsMode0[] = {5, 13};
+const byte pixelsMode0Max = 12;
+const word pixelMode0MaxBrightness[] = {85, 256};
+const byte pixelStepChangeBrightnessMode0[] = {20, 40}; // /100
+const byte pixelStepChangeBrightnessMode2[] = {10, 20}; // /100
+const byte pixelColor[] = {123, 254, 255};
+const byte pixelsWaitWhiteBlinkMaxPool[] = {8, 51};
+const byte pixelWaitCyclesMode2 = 40;
+const byte pixelWaitCyclesMode0 = 10;
 
-void adjustValByStep(float* varToAdjust, const int minMaxArr[], float adjustByVar = 10000, int adjustStep = 3)
+void adjustValByStep(float* varToAdjust, const byte minMaxArr[], float adjustByVar = 10000, byte adjustStep = 3)
 {
   if (varToAdjust == 0) {
     *varToAdjust = random(minMaxArr[0], minMaxArr[1]);
     return;
   }
-  int currentStep = random(adjustStep);
+  byte currentStep = random(adjustStep);
   if (random(11) > 5) {
     *varToAdjust = (adjustByVar == 10000)
                   ? *varToAdjust + currentStep
@@ -168,7 +155,7 @@ void pixelProcess(Pixel &pixel) {
 
       if (pixel.waitWhiteBlink > 0 && pixel.status == 2) {
 
-        color = strip.getPixelColor(pixel.position);
+        uint32_t color = strip.getPixelColor(pixel.position);
 
         if (pixel.timerWhiteBlink < pixel.waitWhiteBlink) {
 
@@ -211,10 +198,9 @@ void pixelProcess(Pixel &pixel) {
   }
 }
 
-void pixelCreate(Pixel &pixel) {
-
-  isValid = true;
-  int posRnd;
+void pixelCreate(Pixel &pixel)
+{
+  bool isValid = true;
 
   if (pixel.mode == 0) {
     isValid = pixelsMode0CurrentPixels < pixelsMode0Current;
@@ -227,8 +213,7 @@ void pixelCreate(Pixel &pixel) {
       pixelsMode0CurrentPixels++;
 
       do {
-        posRnd = random(STRIP_LENGTH);
-        pixel.position = stripFreePositions[posRnd];
+        pixel.position = stripFreePositions[random(STRIP_LENGTH)];
       } while (pixel.position == -2 || pixel.position == -1);
 
       stripFreePositions[pixel.position] = -1;
@@ -273,26 +258,33 @@ bool eventTimer1(void *)
   return true;
 }
 
-void stripReset() {
-
+void stripReset()
+{
   strip.clear();
 
   // fade mode
   i = x = 0;
   while (x < pixelsMode0Max) {
 
-    pixels[i] = Pixel(0);
+    pixels[i] = Pixel();
+    pixels[i].mode = 0;
+    pixels[i].timer = pixelWaitCyclesMode0;
 
     i++;
     x++;
   }
 
   // middle pixels
-  for (x = 0; x < pixelsMiddleCnt; x++) {
+  x = 0;  
+  while (x < pixelsMiddleCnt) {
 
-    pixels[i] = Pixel(2, pixelsMiddle[x]);
+    pixels[i] = Pixel();
+    pixels[i].mode = 2;
+    pixels[i].timer = pixelWaitCyclesMode2;
+    pixels[i].position = pixelsMiddle[x];
 
     i++;
+    x++;
   }
 
   // free positions
