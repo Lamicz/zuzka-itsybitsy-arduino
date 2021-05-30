@@ -2,20 +2,53 @@
 #include <APA102.h>
 #include <arduino-timer.h>
 
-#define STRIP_LENGTH 20
+#define IS_GEMMA 0
+
+#if IS_GEMMA == 1 // gemma
+  #define DOTSTAR_DATA 3
+  #define DOTSTAR_CLK 4
+  #define NEOPIXELS_DATA 1
+  #define STRIP_LENGTH 16
+  #define PIXELS_CNT 12 // pixelsMode0Max + pixelsMiddleCnt
+  const byte pixelsMiddle[] = {6, 7, 8, 9};
+  const byte pixelsMode0[] = {3, 9};
+  const byte pixelsMode0Max = 8;
+#else // ItsyBitsy
+  #define DOTSTAR_DATA 41
+  #define DOTSTAR_CLK 40
+  #define NEOPIXELS_DATA 5
+  #define STRIP_LENGTH 20
+  #define PIXELS_CNT 16 // pixelsMode0Max + pixelsMiddleCnt
+  const byte pixelsMiddle[] = {8, 9, 10, 11};
+  const byte pixelsMode0[] = {5, 13};
+  const byte pixelsMode0Max = 12; 
+#endif
+
 #define TIMER1_UPDATE 15
-#define TIMER2_UPDATE 10
 #define EXTRACT_RED(color)  (((color) >> 16) & 0xff)
 #define EXTRACT_GREEN(color)  (((color) >> 8) & 0xff)
 #define EXTRACT_BLUE(color)  ((color) & 0xff)
 
-// pixelsMode0Max + pixelsMiddleCnt;
-#define PIXELS_CNT 16
+APA102<DOTSTAR_DATA, DOTSTAR_CLK> onboardLed;
+rgb_color onboardLedColors[1];
 
-APA102<41, 40> onboardLed;
-rgb_color colors[1];
-Adafruit_NeoPixel strip(STRIP_LENGTH, 5, NEO_GRBW + NEO_KHZ800);
+#if IS_GEMMA == 1
+  Adafruit_NeoPixel strip(STRIP_LENGTH, NEOPIXELS_DATA, NEO_GRB + NEO_KHZ800);
+#else
+  Adafruit_NeoPixel strip(STRIP_LENGTH, NEOPIXELS_DATA, NEO_GRBW + NEO_KHZ800);
+#endif
+
 auto timer = timer_create_default();
+
+const byte pixelsMiddleCnt = 4;
+const byte pixelsMiddleMinBrightnessPool[] = {75, 110};
+const word pixelMode0MaxBrightness[] = {85, 256};
+const byte pixelStepChangeBrightnessMode0[] = {20, 40}; // /100
+const byte pixelStepChangeBrightnessMode2[] = {10, 20}; // /100
+const byte pixelColor[] = {123, 254, 255};
+const byte pixelsWaitWhiteBlinkMaxPool[] = {8, 51};
+const byte pixelWaitCyclesMode2 = 40;
+const byte pixelWaitCyclesMode0 = 10;
 
 typedef struct Pixel
 {
@@ -23,7 +56,7 @@ typedef struct Pixel
   byte status = 0;
   byte timer = 0;
   byte wait = 0;
-  int position = 0;
+  byte position = 0;
   int maxBrightness = 0;
   int minBrightness = 0;
   float brightnessStep = 0.0;
@@ -41,30 +74,16 @@ typedef struct Pixel
 Pixel pixels[PIXELS_CNT];
 int i = 0;
 int x = 0;
-int stripFreePositions[STRIP_LENGTH];
+byte stripFreePositions[STRIP_LENGTH];
 byte pixelsMode0Current = 11;
 int pixelsMode0CurrentPixels = 0;
 byte pixelsWhiteBlinkCurrent = 3;
 int pixelsWhiteBlinkCurrentPixels = 0;
 
-const byte pixelsMiddle[] = {8, 9, 10, 11};
-const byte pixelMiddle = 10;
-const byte pixelsMiddleCnt = 4;
-const byte pixelsMiddleMinBrightnessPool[] = {75, 110};
-const byte pixelsMode0[] = {5, 13};
-const byte pixelsMode0Max = 12;
-const word pixelMode0MaxBrightness[] = {85, 256};
-const byte pixelStepChangeBrightnessMode0[] = {20, 40}; // /100
-const byte pixelStepChangeBrightnessMode2[] = {10, 20}; // /100
-const byte pixelColor[] = {123, 254, 255};
-const byte pixelsWaitWhiteBlinkMaxPool[] = {8, 51};
-const byte pixelWaitCyclesMode2 = 40;
-const byte pixelWaitCyclesMode0 = 10;
-
 void adjustValByStep(float* varToAdjust, const byte minMaxArr[], float adjustByVar = 10000, byte adjustStep = 3)
 {
   if (varToAdjust == 0) {
-    *varToAdjust = random(minMaxArr[0], minMaxArr[1]);
+    *varToAdjust = random(minMaxArr[0], minMaxArr[1] + 1);
     return;
   }
   byte currentStep = random(adjustStep);
@@ -132,15 +151,26 @@ void pixelProcess(Pixel &pixel) {
 
     if (pixel.mode == 2) {
 
-      strip.setPixelColor(
-        pixel.position,
-        strip.Color(
-          pixelColor[0] * pixel.currentBrightness / 255,
-          pixelColor[1] * pixel.currentBrightness / 255,
-          pixelColor[2] * pixel.currentBrightness / 255,
-          (pixel.dim == false) ? pixel.currentBrightness : pixel.currentBrightnessWhite
-        )
-      );
+      #if IS_GEMMA == 0
+        strip.setPixelColor(
+          pixel.position,
+          strip.Color(
+            pixelColor[0] * pixel.currentBrightness / 255,
+            pixelColor[1] * pixel.currentBrightness / 255,
+            pixelColor[2] * pixel.currentBrightness / 255,
+            (pixel.dim == false) ? pixel.currentBrightness : pixel.currentBrightnessWhite
+          )
+        );
+      #else
+        strip.setPixelColor(
+          pixel.position,
+          strip.Color(
+            255 * (pixel.dim == false) ? pixel.currentBrightness : pixel.currentBrightnessWhite / 255,
+            255 * (pixel.dim == false) ? pixel.currentBrightness : pixel.currentBrightnessWhite / 255,
+            255 * (pixel.dim == false) ? pixel.currentBrightness : pixel.currentBrightnessWhite / 255
+          )
+        );
+      #endif
     }
 
     if (pixel.mode == 0) {
@@ -152,26 +182,40 @@ void pixelProcess(Pixel &pixel) {
                     pixelColor[2] * pixel.currentBrightness / 255
                    )
       );
-
+      
       if (pixel.waitWhiteBlink > 0 && pixel.status == 2) {
 
         uint32_t color = strip.getPixelColor(pixel.position);
 
         if (pixel.timerWhiteBlink < pixel.waitWhiteBlink) {
 
-          strip.setPixelColor(
-            pixel.position,
-            strip.Color(EXTRACT_RED(color), EXTRACT_GREEN(color), EXTRACT_BLUE(color), 255)
-          );
+          #if IS_GEMMA == 0            
+            strip.setPixelColor(
+              pixel.position,
+              strip.Color(EXTRACT_RED(color), EXTRACT_GREEN(color), EXTRACT_BLUE(color), 255)
+            );
+          #else
+            strip.setPixelColor(
+              pixel.position,
+              strip.Color(255, 255, 255)
+            );
+          #endif
 
           pixel.timerWhiteBlink++;
 
         } else {
 
-          strip.setPixelColor(
-            pixel.position,
-            strip.Color(EXTRACT_RED(color), EXTRACT_GREEN(color), EXTRACT_BLUE(color), 0)
-          );
+          #if IS_GEMMA == 0
+            strip.setPixelColor(
+              pixel.position,
+              strip.Color(EXTRACT_RED(color), EXTRACT_GREEN(color), EXTRACT_BLUE(color), 0)
+            );
+          #else
+            strip.setPixelColor(
+              pixel.position,
+              strip.Color(EXTRACT_RED(color), EXTRACT_GREEN(color), EXTRACT_BLUE(color))
+            );          
+          #endif
         }
       }
     }
@@ -214,9 +258,9 @@ void pixelCreate(Pixel &pixel)
 
       do {
         pixel.position = stripFreePositions[random(STRIP_LENGTH)];
-      } while (pixel.position == -2 || pixel.position == -1);
+      } while (pixel.position == 255 || pixel.position == 254);
 
-      stripFreePositions[pixel.position] = -1;
+      stripFreePositions[pixel.position] = 255;
 
       if (pixelsWhiteBlinkCurrentPixels < pixelsWhiteBlinkCurrent) {
 
@@ -297,7 +341,7 @@ void stripReset()
 
       if (pixelsMiddle[i] == x) {
 
-        stripFreePositions[x] = -2;
+        stripFreePositions[x] = 254;
         continue;
       }
     }
@@ -311,10 +355,10 @@ void setup()
 
   timer.every(TIMER1_UPDATE * 1000, eventTimer1);
 
-  colors[0].red = 0;
-  colors[0].green = 65;
-  colors[0].blue = 0;
-  onboardLed.write(colors, 1, 1);
+  onboardLedColors[0].red = 0;
+  onboardLedColors[0].green = 65;
+  onboardLedColors[0].blue = 0;
+  onboardLed.write(onboardLedColors, 1, 1);
 
   strip.begin();
   strip.show();
