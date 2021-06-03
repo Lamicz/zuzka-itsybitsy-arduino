@@ -75,19 +75,28 @@ Pixel pixels[PIXELS_CNT];
 int i = 0;
 int x = 0;
 byte stripFreePositions[STRIP_LENGTH];
-byte pixelsMode0Current = 11;
+int pixelsMode0Current = 0;
 int pixelsMode0CurrentPixels = 0;
 byte pixelsWhiteBlinkCurrent = 3;
 int pixelsWhiteBlinkCurrentPixels = 0;
 
-void adjustValByStep(float* varToAdjust, const byte minMaxArr[], float adjustByVar = 10000, byte adjustStep = 3)
+void adjustValByStep(int* varToAdjust, const byte minMaxArr[], float adjustByVar = 10000, byte adjustStep = 3)
 {
   if (varToAdjust == 0) {
     *varToAdjust = random(minMaxArr[0], minMaxArr[1] + 1);
     return;
   }
   byte currentStep = random(adjustStep);
-  if (random(11) > 5) {
+
+  /*
+  byte arrDiff = minMaxArr[1] - minMaxArr[0];
+  byte arrMiddle = minMaxArr[0] + round(arrDiff / 2);
+  bool preferAdd = *varToAdjust < arrMiddle;
+  bool isAdd = (preferAdd) ? random(11) > 4 : random(11) > 8;
+  */
+  
+  //if (isAdd) {
+  if(random(10) > 4){
     *varToAdjust = (adjustByVar == 10000)
                   ? *varToAdjust + currentStep
                   : adjustByVar + currentStep;
@@ -276,13 +285,19 @@ void pixelCreate(Pixel &pixel)
 
     if (pixel.mode == 2) {
 
-      adjustValByStep(&pixel.currentBrightness, pixelsMiddleMinBrightnessPool, pixel.minBrightness);      
+      int currentBrightnessInt = (int) pixel.currentBrightness;
+      adjustValByStep(&currentBrightnessInt, pixelsMiddleMinBrightnessPool, pixel.minBrightness);      
+      pixel.currentBrightness = (float) currentBrightnessInt * 1.0;
+      
       pixel.minBrightness = pixel.currentBrightness;      
       pixel.brightnessStep = random(pixelStepChangeBrightnessMode2[0], pixelStepChangeBrightnessMode2[1]) / 100.0;      
       
-      pixel.dim = random(20) == 10;
+      pixel.dim = random(20) > 17;
       if (pixel.dim) {
-        adjustValByStep(&pixel.currentBrightnessWhite, pixelsMiddleMinBrightnessPool, pixel.minBrightness);
+
+        int currentBrightnessWhiteInt = (int) pixel.currentBrightnessWhite;
+        adjustValByStep(&currentBrightnessWhiteInt, pixelsMiddleMinBrightnessPool, pixel.minBrightness);
+        pixel.currentBrightnessWhite = (float) currentBrightnessWhiteInt * 1.0;
       }
       
       pixel.maxBrightness = pixel.minBrightness * 2;
@@ -296,8 +311,7 @@ void pixelCreate(Pixel &pixel)
 
 bool eventTimer1(void *)
 {
-  float pixelsMode0CurrentF = (float) pixelsMode0Current;
-  adjustValByStep(&pixelsMode0CurrentF, pixelsMode0);
+  adjustValByStep(&pixelsMode0Current, pixelsMode0);
   pixelsWhiteBlinkCurrent = random(round(pixelsMode0Current / 2));
   return true;
 }
@@ -305,6 +319,7 @@ bool eventTimer1(void *)
 void stripReset()
 {
   strip.clear();
+  adjustValByStep(&pixelsMode0Current, pixelsMode0);
 
   // fade mode
   i = x = 0;
