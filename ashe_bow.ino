@@ -77,7 +77,7 @@ int x = 0;
 byte stripFreePositions[STRIP_LENGTH];
 int pixelsMode0Current = 0;
 int pixelsMode0CurrentPixels = 0;
-byte pixelsWhiteBlinkCurrent = 3;
+byte pixelsWhiteBlinkCurrent = 0;
 int pixelsWhiteBlinkCurrentPixels = 0;
 
 void adjustValByStep(int* varToAdjust, const byte minMaxArr[], float adjustByVar = 10000, byte adjustStep = 3)
