@@ -9,19 +9,19 @@
   #define DOTSTAR_CLK 4
   #define NEOPIXELS_DATA 1
   #define STRIP_LENGTH 16
-  #define PIXELS_CNT 12 // pixelsMode0Max + pixelsMiddleCnt
+  #define PIXELS_CNT 10 // pixelsMode0Max + pixelsMiddleCnt
   const byte pixelsMiddle[] = {6, 7, 8, 9};
-  const byte pixelsMode0[] = {3, 9};
-  const byte pixelsMode0Max = 8;
+  const byte pixelsMode0[] = {3, 7};
+  const byte pixelsMode0Max = 6;
 #else // ItsyBitsy
   #define DOTSTAR_DATA 41
   #define DOTSTAR_CLK 40
   #define NEOPIXELS_DATA 5
   #define STRIP_LENGTH 20
-  #define PIXELS_CNT 16 // pixelsMode0Max + pixelsMiddleCnt
+  #define PIXELS_CNT 14 // pixelsMode0Max + pixelsMiddleCnt
   const byte pixelsMiddle[] = {8, 9, 10, 11};
-  const byte pixelsMode0[] = {5, 13};
-  const byte pixelsMode0Max = 12; 
+  const byte pixelsMode0[] = {5, 11};
+  const byte pixelsMode0Max = 10;
 #endif
 
 #define TIMER1_UPDATE 15
@@ -83,18 +83,12 @@ int pixelsWhiteBlinkCurrentPixels = 0;
 void adjustValByStep(int* varToAdjust, const byte minMaxArr[], float adjustByVar = 10000, byte adjustStep = 3)
 {
   if (varToAdjust == 0) {
-    *varToAdjust = random(minMaxArr[0], minMaxArr[1] + 1);
+    *varToAdjust = random(minMaxArr[0], minMaxArr[1]);
     return;
   }
-  byte currentStep = random(adjustStep);
-
-  /*
-  byte arrDiff = minMaxArr[1] - minMaxArr[0];
-  byte arrMiddle = minMaxArr[0] + round(arrDiff / 2);
-  bool preferAdd = *varToAdjust < arrMiddle;
-  bool isAdd = (preferAdd) ? random(11) > 4 : random(11) > 8;
-  */
   
+  byte currentStep = random(adjustStep);
+ 
   //if (isAdd) {
   if(random(10) > 4){
     *varToAdjust = (adjustByVar == 10000)
@@ -105,8 +99,8 @@ void adjustValByStep(int* varToAdjust, const byte minMaxArr[], float adjustByVar
                   ? *varToAdjust - currentStep
                   : adjustByVar - currentStep;
   }
-  if (*varToAdjust > minMaxArr[1]) {
-    *varToAdjust = minMaxArr[1];
+  if (*varToAdjust > minMaxArr[1] - 1) {
+    *varToAdjust = minMaxArr[1] - 1;
     return;
   }
   if (*varToAdjust < minMaxArr[0]) {
@@ -292,7 +286,7 @@ void pixelCreate(Pixel &pixel)
       pixel.minBrightness = pixel.currentBrightness;      
       pixel.brightnessStep = random(pixelStepChangeBrightnessMode2[0], pixelStepChangeBrightnessMode2[1]) / 100.0;      
       
-      pixel.dim = random(20) > 17;
+      pixel.dim = random(21) == 5;
       if (pixel.dim) {
 
         int currentBrightnessWhiteInt = (int) pixel.currentBrightnessWhite;
